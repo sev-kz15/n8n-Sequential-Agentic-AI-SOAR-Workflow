@@ -2,126 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sequential Agentic AI SOAR Platform — n8n workflow</title>
-<meta name="description" content="Interactive view of the n8n workflow behind a three-agent SOC automation pipeline for SME cloud environments.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>n8n workflow</title>
 <style>
-  :root {
-    --bg: #f5f7f7; --surface: #ffffff; --ink: #14202a; --muted: #56656f;
-    --rule: #d9e1e3; --accent: #0b6b70; --accent-wash: #e1efef; --on-accent: #ffffff;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0e161b; --surface: #151f26; --ink: #e3ebee; --muted: #93a4ae;
-      --rule: #26343c; --accent: #55babf; --accent-wash: #16302f; --on-accent: #0e161b;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--ink);
-    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    padding: 0 16px 48px;
-  }
-  .wrap { max-width: 1200px; margin: 0 auto; }
-  header { padding: 32px 0 20px; border-bottom: 2px solid var(--ink); margin-bottom: 20px; }
-  .eyebrow {
-    font: 600 12px/1 ui-monospace, "Cascadia Mono", Consolas, monospace;
-    letter-spacing: .12em; text-transform: uppercase; color: var(--accent); margin: 0 0 12px;
-  }
-  h1 { font-size: clamp(1.6rem, 5vw, 2.4rem); line-height: 1.1; margin: 0 0 10px; text-wrap: balance; }
-  .lede { margin: 0; color: var(--muted); max-width: 62ch; }
-  .canvas {
-    background: var(--surface); border: 1px solid var(--rule); border-radius: 6px;
-    overflow: hidden; margin-bottom: 10px;
-  }
-  .canvas-inner { transform-origin: 0 0; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1f1f1f; color-scheme: dark; }
+  #canvas { position: fixed; inset: 0; overflow: hidden; }
+  #canvas-inner { transform-origin: 0 0; }
   n8n-demo {
     display: block;
-    --n8n-workflow-min-height: var(--canvas-h, clamp(420px, 72vh, 820px));
-    --n8n-overlay-background-color: var(--accent);
-    --n8n-interact-button-color: var(--on-accent);
+    --n8n-workflow-min-height: var(--canvas-h, 100vh);
+    --n8n-frame-background-color: #1f1f1f;
   }
-  .hint { font-size: 14px; color: var(--muted); margin: 0 0 32px; }
-  h2 { font-size: 1.2rem; margin: 0 0 12px; }
-  ol.layers { list-style: none; padding: 0; margin: 0 0 32px; display: grid; gap: 8px; }
-  ol.layers li {
-    display: grid; grid-template-columns: 5.5rem 1fr; gap: 12px;
-    background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 10px 14px;
+  #fail {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #d6d6d6;
   }
-  .ln { font: 600 13px/1.6 ui-monospace, "Cascadia Mono", Consolas, monospace; color: var(--accent); }
-  .ln small { display: block; font-weight: 400; color: var(--muted); }
-  ol.layers p { margin: 0; }
-  ol.layers strong { display: block; }
-  .agent { background: var(--accent-wash); }
-  .note {
-    border-left: 3px solid var(--accent); background: var(--surface);
-    padding: 12px 16px; margin: 0 0 20px; font-size: 15px;
-  }
-  .note p { margin: 0; }
-  code { font: 14px ui-monospace, "Cascadia Mono", Consolas, monospace; }
-  a { color: var(--accent); }
-  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  footer { margin-top: 36px; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--muted); }
-  @media (max-width: 560px) {
-    ol.layers li { grid-template-columns: 1fr; gap: 2px; }
-  }
+  #fail a { color: #7fd0d4; }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <p class="eyebrow">Honours research · Flinders University · STEM7700</p>
-    <h1>Sequential Agentic AI SOAR Platform</h1>
-    <p class="lede">The n8n workflow behind a three-agent SOC automation pipeline that detects, investigates and responds to threats in a simulated SME cloud environment. Pan, zoom and open any node to read its logic.</p>
-  </header>
-
-  <div class="canvas" id="canvas">
-    <div class="canvas-inner" id="canvas-inner">
-      <n8n-demo id="wf" collapseformobile="false" clicktointeract="true" hidecanvaserrors="true"></n8n-demo>
-    </div>
+<div id="canvas">
+  <div id="canvas-inner">
+    <n8n-demo id="wf" theme="dark" collapseformobile="false" clicktointeract="false" hidecanvaserrors="true"></n8n-demo>
   </div>
-  <p class="hint">Tap the canvas to explore, then open any node to read its logic. On a phone, pinch to zoom or turn the screen sideways.</p>
-
-  <h2>How to read the workflow</h2>
-  <ol class="layers">
-    <li><span class="ln">Layer 1<small>Ingest</small></span><p><strong>Ingestion</strong>Wazuh posts each security alert to the workflow's webhook.</p></li>
-    <li><span class="ln">Layer 2<small>DP-03</small></span><p><strong>Extract, transform, filter</strong>Parses the alert, starts the detection clock, and drops anything outside the in-scope detection rules before it reaches an AI agent.</p></li>
-    <li class="agent"><span class="ln">Layer 3<small>DP-01</small></span><p><strong>Agent 1: threat classification</strong>Classifies the threat type, MITRE ATT&amp;CK technique, severity and confidence using a locally hosted Llama 3.1 8B model.</p></li>
-    <li class="agent"><span class="ln">Layer 4<small>DP-01</small></span><p><strong>Agent 2: threat investigation</strong>Validates Agent 1's classification and decides whether to respond autonomously or escalate to a human analyst.</p></li>
-    <li class="agent"><span class="ln">Layer 5<small>DP-01</small></span><p><strong>Agent 3: threat response</strong>Generates the containment command: block the source IP, or disable the offending account.</p></li>
-    <li><span class="ln">Layer 6<small>Guards</small></span><p><strong>Response validation</strong>Static checks confirm the command matches its test case, and a protected-account guard escalates any attempt to disable a privileged account.</p></li>
-    <li><span class="ln">Layer 7<small>Execute</small></span><p><strong>Execution and capture</strong>Runs the command on the Domain Controller over SSH, records escalations, and logs timings and outcomes for evaluation.</p></li>
-  </ol>
-
-  <div class="note">
-    <p>Environment-specific values (hosts, IP addresses, credentials and cloud resource names) have been replaced with placeholders such as <code>&lt;DC_IP&gt;</code>. This copy is for viewing and will not run as-is.</p>
-  </div>
-  <p><a href="workflow.json" download>Download the workflow JSON</a></p>
-
-  <footer>Workflow rendered with n8n's open-source preview component.</footer>
 </div>
-
 <script>
   (function () {
-    var LOGICAL_W = 1000, LOGICAL_H = 620;
+    var LOGICAL_W = 1000;
     var frame = document.getElementById('canvas');
     var inner = document.getElementById('canvas-inner');
     var el = document.getElementById('wf');
     var detailOpen = false;
 
     function fit() {
-      var w = frame.clientWidth;
-      if (!w) return;
+      var w = frame.clientWidth, h = frame.clientHeight;
+      if (!w || !h) return;
       if (detailOpen || w >= LOGICAL_W) {
         inner.style.width = ''; inner.style.transform = '';
-        frame.style.height = ''; el.style.removeProperty('--canvas-h');
+        el.style.setProperty('--canvas-h', h + 'px');
         return;
       }
       var s = w / LOGICAL_W;
-      el.style.setProperty('--canvas-h', LOGICAL_H + 'px');
       inner.style.width = LOGICAL_W + 'px';
       inner.style.transform = 'scale(' + s + ')';
-      frame.style.height = Math.round(LOGICAL_H * s) + 'px';
+      el.style.setProperty('--canvas-h', Math.ceil(h / s) + 'px');
     }
 
     window.addEventListener('message', function (e) {
@@ -139,10 +63,6 @@
     }
     fit();
 
-    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      el.setAttribute('theme', 'dark');
-    }
-
     fetch('workflow.json')
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
       .then(function (wf) {
@@ -150,7 +70,7 @@
         return import('https://cdn.jsdelivr.net/npm/@n8n_io/n8n-demo-component@1.0.20/n8n-demo.bundled.js');
       })
       .catch(function () {
-        frame.insertAdjacentHTML('afterend', '<p class="hint">The interactive view could not be loaded. <a href="workflow.json">Open the workflow JSON directly</a>.</p>');
+        document.body.insertAdjacentHTML('beforeend', '<div id="fail"><p>The workflow view could not be loaded. <a href="workflow.json">Open the workflow JSON</a>.</p></div>');
       });
   })();
 </script>

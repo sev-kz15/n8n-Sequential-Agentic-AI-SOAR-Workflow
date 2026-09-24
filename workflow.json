@@ -1829,15 +1829,15 @@
     },
     {
       "parameters": {
-        "content": "## Layer 1 - Ingestion\n**Wazuh - SIEM Logs**\n\nEvery Raw JSON SIEM Log is recieved here via a HTTP Post\n\n",
-        "height": 256,
+        "content": "## Layer 1 - Ingestion\n**Wazuh - SIEM Logs**\n\n\n\n\n\n\n\n\n\nEvery Raw JSON SIEM Log is recieved here via a HTTP Post",
+        "height": 400,
         "width": 368
       },
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
         48,
-        336
+        320
       ],
       "id": "edbafb62-8320-4410-abff-789ecd98b896",
       "name": "Sticky Note"
@@ -1860,8 +1860,8 @@
     },
     {
       "parameters": {
-        "content": "## Layer 2 - ETL\n**DP-03**\n**JSON payload extraction (MTTD Start) -> Payload Parsing -> Payload Filtering for relevance**\n\n\n\n\n\n\n\n\n\n\n\nThe payload is received from the webhook and marks the time origin for TTD, TTI & TTR. The payload is parsed into appropriate JSON to aid Agent 1 classification, which is then filtered to ensure the logs being passed match the scope of the tests (Rule level >= 7, Azure test bed IP's, assigned wazuh ID's for TC-01&02 events)\n\n",
-        "height": 400,
+        "content": "## Layer 2 - ETL\n**DP-03**\n**JSON payload extraction (MTTD Start) -> Payload Parsing -> Payload Filtering for relevance**\n\n\n\n\n\n\n\n\n\nThe payload is received from the webhook and marks the time origin for TTD, TTI & TTR. The payload is parsed into appropriate JSON to aid Agent 1 classification, which is then filtered to ensure the logs being passed match the scope of the tests (Rule level >= 7, Azure test bed IP's, assigned wazuh ID's for TC-01&02 events)",
+        "height": 528,
         "width": 624,
         "color": 6
       },
@@ -1869,15 +1869,15 @@
       "typeVersion": 1,
       "position": [
         448,
-        320
+        272
       ],
       "id": "1ce2e4b8-f252-47bb-85f9-3f1e6b092917",
       "name": "Sticky Note1"
     },
     {
       "parameters": {
-        "content": "## Layer 3 - Threat Classification\n**DP-01**\n**Loaded Filtered Wazuh log JSON -> NGrok HTTP Post (Classification context  & guardrails) -> Local Llama 3.18B instance -> Agent JSON Response Capture**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe loaded Wazuh JSON log is captured and posted to the Agent through an Ngrok link, providing the Agent environment context, the exact log in JSON, and requests the Agent to define the scoped threat type, confirm the Mitre Att&ck technique, provide an assumed severity, a confidence score number, and a reasoning statement.\n\nThe response then follows a failsafe pathway where if Agent hallucination occurs or the model is not reachable, the workflow can still continue with the results provided. ",
-        "height": 784,
+        "content": "## Layer 3 - Threat Classification\n**DP-01**\n**Loaded Filtered Wazuh log JSON -> NGrok HTTP Post (Classification context  & guardrails) -> Local Llama 3.18B instance -> Agent JSON Response Capture**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe loaded Wazuh JSON log is captured and posted to the Agent through an Ngrok link, providing the Agent environment context, the exact log in JSON, and requests the Agent to define the scoped threat type, confirm the Mitre Att&ck technique, provide an assumed severity, a confidence score number, and a reasoning statement.\n\nThe response then follows a failsafe pathway where if Agent hallucination occurs or the model is not reachable, the workflow can still continue with the results provided.",
+        "height": 944,
         "width": 464,
         "color": 4
       },
@@ -1885,15 +1885,15 @@
       "typeVersion": 1,
       "position": [
         1088,
-        208
+        128
       ],
       "id": "feb55ca2-4ff9-4a53-86bc-bb67f5f84f96",
       "name": "Sticky Note2"
     },
     {
       "parameters": {
-        "content": "## Layer 4 - Threat Investigation\n**DP-01**\n**TTD Reference Point -> NGrok HTTP Post (Investigation context & Guardrails) -> Local Llama 3.18B Instance -> Agent JSON Response Capture -> Escalation Option**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe JSON payload + the classification Agents response is captured and posted to the Agent (this travels through the blank input node to carry the TTD value no matter the pathway) through an Ngrok link, providing the Agent with environment context and threat classification context. Its provided role is to consider the source IP, confidence score, severity and reasons to doubt the classification provided by the classification Agent. Determining if the event should be reviewed by a security analyst prior to responding, providing a reasoning statement, and a validated confirmation of the classification Agents reponse.\n\nThe failsafe pathway remains constant, and dependent on the Agents decision to Escalate or continue to response the \"IF\" node facilitates the continuation of the workflow.  \n\n",
-        "height": 784,
+        "content": "## Layer 4 - Threat Investigation\n**DP-01**\n**TTD Reference Point -> NGrok HTTP Post (Investigation context & Guardrails) -> Local Llama 3.18B Instance -> Agent JSON Response Capture -> Escalation Option**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe JSON payload + the classification Agents response is captured and posted to the Agent (this travels through the blank input node to carry the TTD value no matter the pathway) through an Ngrok link, providing the Agent with environment context and threat classification context. Its provided role is to consider the source IP, confidence score, severity and reasons to doubt the classification provided by the classification Agent. Determining if the event should be reviewed by a security analyst prior to responding, providing a reasoning statement, and a validated confirmation of the classification Agents reponse.\n\nThe failsafe pathway remains constant, and dependent on the Agents decision to Escalate or continue to response the \"IF\" node facilitates the continuation of the workflow.",
+        "height": 944,
         "width": 864,
         "color": 4
       },
@@ -1901,14 +1901,14 @@
       "typeVersion": 1,
       "position": [
         1568,
-        208
+        128
       ],
       "id": "d8ac7574-cb98-4ad6-9e2f-b3e9902f9329",
       "name": "Sticky Note3"
     },
     {
       "parameters": {
-        "content": "## Layer 5 - Threat Response\n**DP-01**\n**Validated Classification -> NGrok HTTP Post (Response context & Guardrails)-> Local Llama 3.18B Instance ->  Agent JSON Response Capture -> Test Case Response Routing**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nEscalation pathway is false + the classification validation, the classification and the original JSON payload are captured through the Ngrok link, provding the Agent with environment context, validated classification from the investigation Agent, and response rules to decide between blocking the source IP in response to a presumed DoS attack (TC-01) or disabling the user account (TC-02). \n",
+        "content": "## Layer 5 - Threat Response\n**DP-01**\n**Validated Classification -> NGrok HTTP Post (Response context & Guardrails)-> Local Llama 3.18B Instance ->  Agent JSON Response Capture -> Test Case Response Routing**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nEscalation pathway is false + the classification validation, the classification and the original JSON payload are captured through the Ngrok link, provding the Agent with environment context, validated classification from the investigation Agent, and response rules to decide between blocking the source IP in response to a presumed DoS attack (TC-01) or disabling the user account (TC-02).",
         "height": 928,
         "width": 640,
         "color": 4
@@ -1924,8 +1924,8 @@
     },
     {
       "parameters": {
-        "content": "## Layer 6 - Response Validation\n**T/P Testcase Pathway by Command response -> Verified Test Case Commands -> Elevated Account Hard Block**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe command pathway splits into the two test cases separated by SSH command, TC-01 targeting DoS remediation through NSG creation, and TC-02 targeting insider threat remediation through DC account disablement.  Where the passed command does not include the appropriate TC remediation SSH command, the pathway   takes the false route for escalation. \n\nWhere TC-02 is triggered, a hard blocked elevated account check is present to check against protected admin accounts attempting account disablement from Agent 3, ensuring the DC doesn't lock disable its own privileged account upon Agent 3 hallucination.",
-        "height": 1328,
+        "content": "## Layer 6 - Response Validation\n**T/P Testcase Pathway by Command response -> Verified Test Case Commands -> Elevated Account Hard Block**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nThe command pathway splits into the two test cases separated by SSH command, TC-01 targeting DoS remediation through NSG creation, and TC-02 targeting insider threat remediation through DC account disablement.  Where the passed command does not include the appropriate TC remediation SSH command, the pathway   takes the false route for escalation. \n\nWhere TC-02 is triggered, a hard blocked elevated account check is present to check against protected admin accounts attempting account disablement from Agent 3, ensuring the DC doesn't lock disable its own privileged account upon Agent 3 hallucination.",
+        "height": 1376,
         "width": 416,
         "color": 7
       },
@@ -1933,15 +1933,15 @@
       "typeVersion": 1,
       "position": [
         3104,
-        224
+        176
       ],
       "id": "98ccb328-9e43-485b-bc91-8abfbc8ec2a4",
       "name": "Sticky Note5"
     },
     {
       "parameters": {
-        "content": "## Layer 7 - Escalation/Response Execution & Capture\n**SSH Agent 3 Command - Invalid Response/Protected Account Escalation w/ Reasoning -> SSH Command to DC Execution - Escalation capture and metrics -> SSH Command execution capture and metrics -> Metrics forwarded to Google Sheets and captured**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPass responses assign the validated TC commands to their associated SSH nodes for execution in the DC, with the linked n8n credentials. Escalation nodes capture the invalid commands passed and fallback/pre-escalation capture Agent 3/previous agent responses and data. Escalation capture and post SSH capture nodes compute the appropriate Excel sheet fields/metrics ready for final capture by the Excel node.",
-        "height": 1536,
+        "content": "## Layer 7 - Escalation/Response Execution & Capture\n**SSH Agent 3 Command - Invalid Response/Protected Account Escalation w/ Reasoning -> SSH Command to DC Execution - Escalation capture and metrics -> SSH Command execution capture and metrics -> Metrics forwarded to Google Sheets and captured**\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nPass responses assign the validated TC commands to their associated SSH nodes for execution in the DC, with the linked n8n credentials. Escalation nodes capture the invalid commands passed and fallback/pre-escalation capture Agent 3/previous agent responses and data. Escalation capture and post SSH capture nodes compute the appropriate Excel sheet fields/metrics ready for final capture by the Excel node.",
+        "height": 1664,
         "width": 1078,
         "color": "#42435C"
       },
@@ -1949,7 +1949,7 @@
       "typeVersion": 1,
       "position": [
         3536,
-        -64
+        -112
       ],
       "id": "1a099ed3-e5a0-4a12-926d-e506efc9cd20",
       "name": "Sticky Note7"
