@@ -5,7 +5,8 @@ for SME environments. Companion to an research poster, the poster's QR code open
 
 | File | Purpose |
 |---|---|
-| `index.html` | Renders the workflow with n8n's open-source preview component (`@n8n_io/n8n-demo-component`) |
+| `index.html` | Lightweight canvas renderer of the workflow — pan, pinch-zoom, tap a node for its details |
+| `n8n.html` | The same workflow in n8n's own preview component (`@n8n_io/n8n-demo-component`) |
 | `workflow.json` | The exported workflow, sanitised for public release |
 
 ## Sanitisation
@@ -18,5 +19,9 @@ IDs are redacted. This copy is for viewing and will not run as-is.
 
 ## Rendering note
 
-The canvas is drawn by n8n's hosted preview service (`n8n-preview-service.internal.n8n.cloud`),
+`index.html` draws the workflow itself on a single `<canvas>` sized to the screen, so its memory
+use is fixed at any zoom level. It was built after n8n's preview — the full n8n editor running
+in an iframe — exhausted memory on iPhones during rapid zooming.
+
+`n8n.html` still uses n8n's hosted preview service (`n8n-preview-service.internal.n8n.cloud`),
 which receives the workflow JSON above.
