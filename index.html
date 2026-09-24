@@ -7,71 +7,95 @@
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #1f1f1f; color-scheme: dark; }
   #canvas { position: fixed; inset: 0; overflow: hidden; }
-  #canvas-inner { transform-origin: 0 0; }
   n8n-demo {
     display: block;
-    --n8n-workflow-min-height: var(--canvas-h, 100vh);
+    --n8n-workflow-min-height: 100vh;
     --n8n-frame-background-color: #1f1f1f;
   }
+  @supports (height: 100dvh) {
+    n8n-demo { --n8n-workflow-min-height: 100dvh; }
+  }
   #fail {
-    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
-    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #d6d6d6;
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 24px;
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #d6d6d6; text-align: center;
   }
   #fail a { color: #7fd0d4; }
 </style>
 </head>
 <body>
-<div id="canvas">
-  <div id="canvas-inner">
-    <n8n-demo id="wf" theme="dark" collapseformobile="false" clicktointeract="false" hidecanvaserrors="true"></n8n-demo>
-  </div>
-</div>
+<div id="canvas"></div>
 <script>
   (function () {
-    var LOGICAL_W = 1000;
     var frame = document.getElementById('canvas');
-    var inner = document.getElementById('canvas-inner');
-    var el = document.getElementById('wf');
-    var detailOpen = false;
+    var workflow = null, el = null, rebuilds = 0, loadedAt = 0, lastWidth = 0;
 
-    function fit() {
-      var w = frame.clientWidth, h = frame.clientHeight;
-      if (!w || !h) return;
-      if (detailOpen || w >= LOGICAL_W) {
-        inner.style.width = ''; inner.style.transform = '';
-        el.style.setProperty('--canvas-h', h + 'px');
-        return;
-      }
-      var s = w / LOGICAL_W;
-      inner.style.width = LOGICAL_W + 'px';
-      inner.style.transform = 'scale(' + s + ')';
-      el.style.setProperty('--canvas-h', Math.ceil(h / s) + 'px');
+    function iframeWindow() {
+      var f = el && el.shadowRoot && el.shadowRoot.getElementById('int_iframe');
+      return f && f.contentWindow;
+    }
+
+    function fitView() {
+      var w = iframeWindow();
+      if (w) w.postMessage(JSON.stringify({ command: 'fitView' }), '*');
+    }
+
+    // Create a fresh viewer. The workflow attribute is set before the element is attached,
+    // so the viewer never posts an empty workflow to the preview.
+    function mount() {
+      if (el) el.remove();
+      el = document.createElement('n8n-demo');
+      el.setAttribute('theme', 'dark');
+      el.setAttribute('collapseformobile', 'false');
+      el.setAttribute('clicktointeract', 'false');
+      el.setAttribute('hidecanvaserrors', 'true');
+      el.setAttribute('workflow', workflow);
+      frame.appendChild(el);
+    }
+
+    function fail() {
+      if (el) el.remove();
+      document.body.insertAdjacentHTML('beforeend', '<div id="fail"><p>The workflow view could not be loaded. <a href="./">Try again</a> or <a href="workflow.json">open the workflow JSON</a>.</p></div>');
     }
 
     window.addEventListener('message', function (e) {
-      if (typeof e.data !== 'string') return;
-      try {
-        var cmd = JSON.parse(e.data).command;
-        if (cmd === 'openNDV') { detailOpen = true; fit(); }
-        if (cmd === 'closeNDV') { detailOpen = false; fit(); }
-      } catch (err) {}
+      if (!e.source || e.source !== iframeWindow()) return;
+      if (typeof e.data !== 'string' || e.data.indexOf('"command"') === -1) return;
+      var msg;
+      try { msg = JSON.parse(e.data); } catch (err) { return; }
+
+      if (msg.command === 'n8nReady') {
+        // Fit the whole workflow once the preview has had time to import and lay it out.
+        loadedAt = Date.now();
+        setTimeout(fitView, 700);
+        setTimeout(fitView, 1800);
+      }
+
+      if (msg.command === 'error') {
+        // The viewer gives up permanently on this message; rebuild it instead.
+        if (rebuilds < 3) { rebuilds++; setTimeout(mount, 400); }
+        else fail();
+      }
     });
-    if ('ResizeObserver' in window) {
-      new ResizeObserver(fit).observe(frame);
-    } else {
-      window.addEventListener('resize', fit);
-    }
-    fit();
+
+    // Re-fit on rotation or a real width change, never on the height-only changes mobile
+    // browsers make while their toolbars show and hide.
+    window.addEventListener('resize', function () {
+      var w = window.innerWidth;
+      if (!lastWidth) { lastWidth = w; return; }
+      if (Math.abs(w - lastWidth) < 40) return;
+      lastWidth = w;
+      if (Date.now() - loadedAt > 500) setTimeout(fitView, 250);
+    });
+    lastWidth = window.innerWidth;
 
     fetch('workflow.json')
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-      .then(function (wf) {
-        el.setAttribute('workflow', wf);
+      .then(function (text) {
+        workflow = text;
         return import('https://cdn.jsdelivr.net/npm/@n8n_io/n8n-demo-component@1.0.20/n8n-demo.bundled.js');
       })
-      .catch(function () {
-        document.body.insertAdjacentHTML('beforeend', '<div id="fail"><p>The workflow view could not be loaded. <a href="workflow.json">Open the workflow JSON</a>.</p></div>');
-      });
+      .then(mount)
+      .catch(fail);
   })();
 </script>
 </body>
