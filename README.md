@@ -19,9 +19,10 @@ IDs are redacted. This copy is for viewing and will not run as-is.
 
 ## Rendering note
 
-`index.html` draws the workflow itself on a single `<canvas>` sized to the screen, so its memory
-use is fixed at any zoom level. It was built after n8n's preview — the full n8n editor running
-in an iframe — exhausted memory on iPhones during rapid zooming.
+n8n's live preview is its full editor running in an iframe; on iPhones, rapid zooming exhausted
+Safari's memory. `index.html` instead shows the same n8n rendering, captured once from n8n's
+preview service with a headless browser and cut into deep-zoom tiles. Only the tiles on screen are
+loaded and at most 120 are kept decoded, so memory stays small at any zoom.
 
 `n8n.html` still uses n8n's hosted preview service (`n8n-preview-service.internal.n8n.cloud`),
 which receives the workflow JSON above.

@@ -4,20 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>n8n workflow</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap">
+<link rel="icon" href="data:,">
 <style>
   html, body {
     margin: 0; height: 100%; overflow: hidden; background: #171717; color-scheme: dark;
-    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-    overscroll-behavior: none;
+    touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; overscroll-behavior: none;
   }
-  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
-  canvas.dragging { cursor: grabbing; }
+  #stage { position: fixed; inset: 0; }
+  #viewer { width: 100%; height: 100%; }
   .controls {
     position: fixed; left: max(12px, env(safe-area-inset-left)); bottom: max(12px, env(safe-area-inset-bottom));
-    display: flex; gap: 8px;
+    display: flex; gap: 8px; z-index: 5;
   }
   .controls button {
     width: 40px; height: 40px; border-radius: 8px; border: 1px solid #3a3a3a; background: #262626; color: #e6e6e6;
@@ -27,9 +24,9 @@
   .controls button:focus-visible, .sheet button:focus-visible { outline: 2px solid #8f8cf5; outline-offset: 2px; }
   .controls svg { width: 18px; height: 18px; }
   .sheet {
-    position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; display: flex; flex-direction: column;
+    position: fixed; left: 0; right: 0; bottom: 0; max-height: 72vh; display: flex; flex-direction: column; z-index: 10;
     background: #1f1f1f; border-top: 1px solid #3a3a3a; border-radius: 14px 14px 0 0; color: #e6e6e6;
-    font: 14px/1.5 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     box-shadow: 0 -8px 30px rgba(0,0,0,.45); touch-action: pan-y; -webkit-user-select: text; user-select: text;
   }
   .sheet[hidden] { display: none; }
@@ -46,12 +43,12 @@
   .sheet .row { display: grid; grid-template-columns: minmax(90px, 34%) 1fr; gap: 10px; padding: 6px 0; border-bottom: 1px solid #262626; }
   .sheet .row span:first-child { color: #9a9a9a; word-break: break-word; }
   .sheet .row span:last-child { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; word-break: break-word; white-space: pre-wrap; }
-  #fail { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 24px; text-align: center; color: #d6d6d6; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  #fail { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 24px; text-align: center; color: #d6d6d6; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; z-index: 20; }
   #fail a { color: #7fd0d4; }
 </style>
 </head>
 <body>
-<canvas id="c" role="img" aria-label="Interactive diagram of the Sequential Agentic AI SOAR Platform n8n workflow. Drag to pan, pinch or scroll to zoom, tap a node for its details."></canvas>
+<div id="stage"><div id="viewer" role="img" aria-label="Zoomable view of the Sequential Agentic AI SOAR Platform n8n workflow, as rendered by n8n. Drag to pan, pinch or scroll to zoom, tap a node for its details."></div></div>
 <div class="controls">
   <button type="button" id="fit" aria-label="Fit whole workflow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
   <button type="button" id="zin" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
@@ -64,399 +61,79 @@
   </header>
   <div class="body" id="sheet-body"></div>
 </section>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/openseadragon/4.1.1/openseadragon.min.js"></script>
 <script>
 (function () {
   'use strict';
-
-  // ---- Colours: n8n dark theme, read from the n8n preview's computed styles ----
-  var C = {
-    bg: '#171717', stripe: '#262626', stripeFar: '#1d1d1d',
-    nodeBg: '#2b2b2b', nodeBorder: 'rgba(255,255,255,0.2)', label: '#ffffff', subtitle: '#bbbbbb',
-    edge: '#4d4d4d', handle: '#8a8a8a', stickyText: '#ffffff'
-  };
-  var STICKY = {
-    1: ['#733e0a', '#894b00'], 4: ['#032e15', '#0d542b'], 6: ['#2f0d68', '#5d0ec0'], 7: ['#262626', '#323232'],
-    '#42435c': ['#42435c', '#7779a6']
-  };
-  var ICON = { set: '#8f8cf5', httpRequest: '#8f8cf5', if: '#35b89a', filter: '#3fa9f5', noOp: '#c9c9c9', ssh: '#e6e6e6', googleSheets: '#23a566', webhook: '#ea4b71' };
   var TYPE_NAME = { set: 'Edit Fields (Set)', httpRequest: 'HTTP Request', if: 'If', filter: 'Filter', noOp: 'No Operation', ssh: 'SSH', googleSheets: 'Google Sheets', webhook: 'Webhook' };
+  var NODE = 100;
+  var nodes = [], map = null, viewer = null;
 
-  // ---- Metrics (canvas units), measured in the n8n preview ----
-  var FONT = 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
-  var STK = { padX: 13, headTop: 40.5, headSize: 18, headLine: 23.4, headGap: 16.5, bodySize: 16, bodyLine: 24 };
-  var NODE = 100, MAX_ZOOM = 3;
-
-  var canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
-  var dpr = 1, W = 0, H = 0;
-  var view = { x: 0, y: 0, k: 1 }, fitK = 1, touched = false, dirty = true;
-  var stickies = [], nodes = [], edges = [], byName = {}, bounds = null;
-
-  function short(type) { return type.replace('n8n-nodes-base.', ''); }
-  function font(size, weight) { return (weight || 400) + ' ' + size + 'px ' + FONT; }
-
-  // ---- Text layout ----
-  function wrapRuns(runs, maxW) {
-    var lines = [[]], lineW = 0;
-    runs.forEach(function (run) {
-      ctx.font = run.font;
-      run.text.split(/(\s+)/).forEach(function (tok) {
-        if (!tok) return;
-        var w = ctx.measureText(tok).width;
-        var isSpace = /^\s+$/.test(tok);
-        if (!isSpace && lineW + w > maxW && lineW > 0) { lines.push([]); lineW = 0; }
-        if (isSpace && lineW === 0) return;
-        var line = lines[lines.length - 1], last = line[line.length - 1];
-        if (last && last.font === run.font) last.text += tok; else line.push({ font: run.font, text: tok });
-        lineW += w;
-      });
-    });
-    return lines.map(function (l) {
-      var end = l[l.length - 1]; if (end) end.text = end.text.replace(/\s+$/, '');
-      return l;
-    });
+  function fail() {
+    document.body.insertAdjacentHTML('beforeend', '<div id="fail"><p>The workflow view could not be loaded. <a href="./">Try again</a> or <a href="workflow.json">open the workflow JSON</a>.</p></div>');
   }
+  if (!window.OpenSeadragon) { fail(); return; }
+  // Tiles are WebP (supported by Safari 14+, Chrome, Firefox, Edge); OpenSeadragon 4.x needs telling.
+  OpenSeadragon.setImageFormatsSupported({ webp: true });
 
-  function inlineRuns(text, size) {
-    var parts = text.split('**'), runs = [];
-    parts.forEach(function (p, i) { if (p) runs.push({ text: p, font: font(size, i % 2 ? 600 : 400) }); });
-    return runs.length ? runs : [{ text: '', font: font(size) }];
-  }
+  // ---- Viewer: tiles captured from n8n's own preview rendering ----
+  viewer = OpenSeadragon({
+    element: document.getElementById('viewer'),
+    tileSources: 'workflow.dzi',
+    prefixUrl: '',
+    showNavigationControl: false,
+    showSequenceControl: false,
+    useCanvas: true,
+    immediateRender: false,
+    maxImageCacheCount: 120,
+    imageLoaderLimit: 4,
+    maxZoomPixelRatio: 1.25,
+    minZoomImageRatio: 0.8,
+    visibilityRatio: 0.3,
+    constrainDuringPan: true,
+    animationTime: 0.5,
+    blendTime: 0.1,
+    preserveImageSizeOnResize: true,
+    gestureSettingsMouse: { clickToZoom: false, dblClickToZoom: true, scrollToZoom: true },
+    gestureSettingsTouch: { clickToZoom: false, dblClickToZoom: true, pinchToZoom: true, flickEnabled: true },
+    gestureSettingsPen: { clickToZoom: false, dblClickToZoom: true }
+  });
+  viewer.addHandler('open-failed', fail);
 
-  // Mirror n8n's sticky rendering: every blank line not adjacent to a heading becomes one
-  // empty line; headings are their own block; all other lines break where they are.
-  function layoutSticky(s) {
-    var maxW = s.w - STK.padX * 2, out = [], y = STK.headTop, prevHeading = false;
-    var src = s.content.replace(/\r/g, '').replace(/->/g, '→').split('\n');
-    var isBlock = function (l) { return /^#{1,6}\s/.test(l || ''); };
-    src.forEach(function (line, i) {
-      var h = /^(#{1,6})\s+(.*)$/.exec(line);
-      if (h) {
-        if (out.length && !prevHeading) y += STK.headGap;
-        wrapRuns([{ text: h[2], font: font(STK.headSize, 600) }], maxW).forEach(function (runs) {
-          out.push({ y: y, size: STK.headSize, line: STK.headLine, runs: runs }); y += STK.headLine;
-        });
-        prevHeading = true; return;
-      }
-      if (line.trim() === '') {
-        if (isBlock(src[i - 1]) || isBlock(src[i + 1])) return;
-        y += STK.bodyLine; return;
-      }
-      if (prevHeading) { y += STK.headGap; prevHeading = false; }
-      wrapRuns(inlineRuns(line, STK.bodySize), maxW).forEach(function (runs) {
-        out.push({ y: y, size: STK.bodySize, line: STK.bodyLine, runs: runs }); y += STK.bodyLine;
-      });
-    });
-    return out;
-  }
+  document.getElementById('fit').addEventListener('click', function () { viewer.viewport.goHome(); });
+  document.getElementById('zin').addEventListener('click', function () { viewer.viewport.zoomBy(1.5); viewer.viewport.applyConstraints(); });
+  document.getElementById('zout').addEventListener('click', function () { viewer.viewport.zoomBy(1 / 1.5); viewer.viewport.applyConstraints(); });
 
-  function subtitleFor(n) {
-    var t = short(n.type), p = n.parameters || {};
-    if (t === 'set') return 'manual';
-    if (t === 'httpRequest') return (p.method || 'GET') + ': ' + (p.url || '');
-    if (t === 'ssh') return 'execute: command';
-    if (t === 'googleSheets') return (p.operation || 'append') + ': sheet';
-    return '';
-  }
-
-  function ellipsize(text, maxW) {
-    if (ctx.measureText(text).width <= maxW) return text;
-    while (text.length > 1 && ctx.measureText(text + '…').width > maxW) text = text.slice(0, -1);
-    return text + '…';
-  }
-
-  // ---- Build the scene from workflow.json ----
-  function build(wf) {
-    wf.nodes.forEach(function (n) {
-      if (n.type === 'n8n-nodes-base.stickyNote') {
-        var col = n.parameters.color;
-        var key = typeof col === 'string' && col.charAt(0) === '#' ? col.toLowerCase() : (col || 1);
-        var pal = STICKY[key] || (typeof key === 'string' ? [key, key] : STICKY[1]);
-        var s = { x: n.position[0], y: n.position[1], w: n.parameters.width || 240, h: n.parameters.height || 160, bg: pal[0], border: pal[1], content: n.parameters.content || '' };
-        s.lines = layoutSticky(s);
-        stickies.push(s);
-      } else {
-        var node = { n: n, name: n.name, t: short(n.type), x: n.position[0], y: n.position[1], outputs: 1, labels: null };
-        byName[n.name] = node; nodes.push(node);
-      }
-    });
-    Object.keys(wf.connections || {}).forEach(function (from) {
-      var src = byName[from]; if (!src) return;
-      var outs = (wf.connections[from].main || []);
-      src.outputs = Math.max(src.outputs, outs.length);
-      outs.forEach(function (targets, i) {
-        (targets || []).forEach(function (t) { if (byName[t.node]) edges.push({ from: src, out: i, to: byName[t.node] }); });
-      });
-    });
-    nodes.forEach(function (node) {
-      if (node.outputs === 2) node.labels = node.t === 'if' ? ['true', 'false'] : (node.n.onError === 'continueErrorOutput' ? ['Success', 'Error'] : null);
-      ctx.font = font(16, 500);
-      var words = node.name, maxW = 170;
-      node.labelLines = ctx.measureText(words).width <= maxW ? [words] : [ellipsize(words, maxW)];
-      ctx.font = font(13);
-      var sub = subtitleFor(node.n); node.sub = sub ? ellipsize(sub, 160) : '';
-    });
-    var xs = [], ys = [];
-    stickies.forEach(function (s) { xs.push(s.x, s.x + s.w); ys.push(s.y, s.y + s.h); });
-    nodes.forEach(function (n) { xs.push(n.x - 40, n.x + NODE + 60); ys.push(n.y, n.y + NODE + 60); });
-    bounds = { x0: Math.min.apply(0, xs), y0: Math.min.apply(0, ys), x1: Math.max.apply(0, xs), y1: Math.max.apply(0, ys) };
-  }
-
-  function outY(node, i) { return node.outputs === 2 ? node.y + (i === 0 ? 33.3 : 66.7) : node.y + NODE / 2; }
-
-  // ---- Drawing ----
-  function roundRect(x, y, w, h, r) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y); ctx.closePath();
-  }
-
-  function visibleRect() {
-    return { x0: -view.x / view.k, y0: -view.y / view.k, x1: (W - view.x) / view.k, y1: (H - view.y) / view.k };
-  }
-  function intersects(v, x0, y0, x1, y1) { return x1 >= v.x0 && x0 <= v.x1 && y1 >= v.y0 && y0 <= v.y1; }
-
-  function drawBackground(v) {
-    ctx.fillStyle = C.bg; ctx.fillRect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0);
-    if (view.k < 0.18) { ctx.fillStyle = C.stripeFar; ctx.fillRect(v.x0, v.y0, v.x1 - v.x0, v.y1 - v.y0); return; }
-    // n8n stripes: 20-unit period, 10-unit band, rotated 135deg -> lines of constant x + y.
-    var period = 20 * Math.SQRT2;
-    ctx.strokeStyle = C.stripe; ctx.lineWidth = 10;
-    ctx.beginPath();
-    var start = Math.floor((v.x0 + v.y0) / period) - 1, end = Math.ceil((v.x1 + v.y1) / period) + 1;
-    for (var i = start; i <= end; i++) {
-      var c = i * period;
-      ctx.moveTo(c - v.y0 + 20, v.y0 - 20); ctx.lineTo(c - v.y1 - 20, v.y1 + 20);
-    }
-    ctx.stroke();
-  }
-
-  function drawSticky(s, v, showText) {
-    roundRect(s.x, s.y, s.w, s.h, 4);
-    ctx.fillStyle = s.bg; ctx.fill();
-    ctx.lineWidth = 1 / Math.max(view.k, 0.25); ctx.strokeStyle = s.border; ctx.stroke();
-    if (!showText) return;
-    ctx.save();
-    ctx.beginPath(); ctx.rect(s.x, s.y, s.w, s.h); ctx.clip();
-    ctx.fillStyle = C.stickyText; ctx.textBaseline = 'middle';
-    s.lines.forEach(function (l) {
-      var ly = s.y + l.y + l.line / 2;
-      if (ly < v.y0 - 40 || ly > v.y1 + 40) return;
-      var x = s.x + STK.padX;
-      l.runs.forEach(function (r) { ctx.font = r.font; ctx.fillText(r.text, x, ly); x += ctx.measureText(r.text).width; });
-    });
-    ctx.restore();
-  }
-
-  function drawEdge(e) {
-    var x1 = e.from.x + NODE, y1 = outY(e.from, e.out), x2 = e.to.x, y2 = e.to.y + NODE / 2;
-    ctx.beginPath(); ctx.moveTo(x1, y1);
-    if (x2 >= x1 + 20) {
-      var c = Math.max(40, (x2 - x1) / 2);
-      ctx.bezierCurveTo(x1 + c, y1, x2 - c, y2, x2, y2);
-    } else {
-      var drop = Math.max(y1, y2) + 130;
-      ctx.bezierCurveTo(x1 + 90, y1, x1 + 90, drop, (x1 + x2) / 2, drop);
-      ctx.bezierCurveTo(x2 - 90, drop, x2 - 90, y2, x2, y2);
-    }
-    ctx.stroke();
-  }
-
-  function icon(t, cx, cy, col) {
-    ctx.save(); ctx.translate(cx, cy);
-    ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = 3.2; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    if (t === 'set') {
-      roundRect(-15, -15, 30, 30, 6); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-6, 7); ctx.lineTo(-7, 12); ctx.lineTo(-2, 11); ctx.lineTo(14, -5); ctx.lineTo(9, -10); ctx.closePath(); ctx.stroke();
-    } else if (t === 'httpRequest') {
-      ctx.arc(0, 0, 16, 0, Math.PI * 2); ctx.moveTo(-16, 0); ctx.lineTo(16, 0);
-      ctx.ellipse(0, 0, 7, 16, 0, 0, Math.PI * 2); ctx.moveTo(-14, -8); ctx.lineTo(14, -8); ctx.moveTo(-14, 8); ctx.lineTo(14, 8); ctx.stroke();
-    } else if (t === 'if') {
-      ctx.moveTo(-14, 0); ctx.lineTo(-2, 0); ctx.moveTo(-2, 0); ctx.bezierCurveTo(4, 0, 4, -11, 12, -11); ctx.moveTo(-2, 0); ctx.bezierCurveTo(4, 0, 4, 11, 12, 11);
-      ctx.moveTo(8, -15); ctx.lineTo(13, -11); ctx.lineTo(8, -7); ctx.moveTo(8, 7); ctx.lineTo(13, 11); ctx.lineTo(8, 15); ctx.stroke();
-    } else if (t === 'filter') {
-      ctx.moveTo(-15, -10); ctx.lineTo(15, -10); ctx.moveTo(-9, 0); ctx.lineTo(9, 0); ctx.moveTo(-4, 10); ctx.lineTo(4, 10); ctx.stroke();
-    } else if (t === 'noOp') {
-      ctx.moveTo(-14, 0); ctx.lineTo(12, 0); ctx.moveTo(3, -9); ctx.lineTo(13, 0); ctx.lineTo(3, 9);
-      ctx.moveTo(-14, -9); ctx.lineTo(-5, 0); ctx.lineTo(-14, 9); ctx.stroke();
-    } else if (t === 'ssh') {
-      roundRect(-17, -14, 34, 28, 4); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-10, -5); ctx.lineTo(-4, 0); ctx.lineTo(-10, 5); ctx.moveTo(-1, 7); ctx.lineTo(8, 7); ctx.stroke();
-    } else if (t === 'googleSheets') {
-      roundRect(-12, -16, 24, 32, 3); ctx.fill();
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(-7, -4, 14, 12);
-      ctx.fillStyle = col; ctx.fillRect(-1, -4, 2, 12); ctx.fillRect(-7, 1, 14, 2);
-    } else if (t === 'webhook') {
-      ctx.lineWidth = 3.4;
-      ctx.arc(0, -9, 5, 0, Math.PI * 2); ctx.moveTo(-9 + 5, 9); ctx.arc(-9, 9, 5, 0, Math.PI * 2); ctx.moveTo(14, 9); ctx.arc(9, 9, 5, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(-2, -4); ctx.lineTo(-7, 5); ctx.moveTo(-4, 9); ctx.lineTo(4, 9); ctx.moveTo(2, -4); ctx.lineTo(7, 5); ctx.stroke();
-    } else {
-      ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.stroke();
-    }
-    ctx.restore();
-  }
-
-  function drawNode(node, showText) {
-    var x = node.x, y = node.y;
-    if (node.t === 'webhook') {
-      ctx.beginPath();
-      ctx.moveTo(x + 50, y); ctx.lineTo(x + NODE - 8, y); ctx.quadraticCurveTo(x + NODE, y, x + NODE, y + 8);
-      ctx.lineTo(x + NODE, y + NODE - 8); ctx.quadraticCurveTo(x + NODE, y + NODE, x + NODE - 8, y + NODE);
-      ctx.lineTo(x + 50, y + NODE); ctx.arc(x + 50, y + 50, 50, Math.PI / 2, Math.PI * 1.5); ctx.closePath();
-    } else {
-      roundRect(x, y, NODE, NODE, 8);
-    }
-    ctx.fillStyle = C.nodeBg; ctx.fill();
-    ctx.lineWidth = 1 / Math.max(view.k, 0.25); ctx.strokeStyle = C.nodeBorder; ctx.stroke();
-    icon(node.t, x + 50, y + 50, ICON[node.t] || '#c9c9c9');
-
-    ctx.fillStyle = C.handle;
-    if (node.t !== 'webhook') ctx.fillRect(x - 3, y + 50 - 8, 6, 16);
-    for (var i = 0; i < node.outputs; i++) {
-      ctx.beginPath(); ctx.arc(x + NODE, outY(node, i), 6, 0, Math.PI * 2); ctx.fill();
-    }
-    if (!showText) return;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillStyle = C.label; ctx.font = font(16, 500);
-    node.labelLines.forEach(function (l, i) { ctx.fillText(l, x + 50, y + NODE + 8 + i * 20); });
-    if (node.sub) { ctx.fillStyle = C.subtitle; ctx.font = font(13); ctx.fillText(node.sub, x + 50, y + NODE + 8 + node.labelLines.length * 20 + 2); }
-    if (node.labels) {
-      ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.font = font(12, 500); ctx.fillStyle = C.subtitle;
-      node.labels.forEach(function (l, i) { ctx.fillText(l, x + NODE + 10, outY(node, i) - 9); });
-    }
-    ctx.textAlign = 'left';
-  }
-
-  function render() {
-    dirty = false;
-    // Never draw at a stale size: rotation events are not delivered reliably on every browser.
-    if (window.innerWidth !== W || window.innerHeight !== H) { resize(); dirty = false; }
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.fillStyle = C.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.setTransform(view.k * dpr, 0, 0, view.k * dpr, view.x * dpr, view.y * dpr);
-    var v = visibleRect();
-    drawBackground(v);
-    var showText = view.k * STK.bodySize >= 3.5;
-    stickies.forEach(function (s) { if (intersects(v, s.x, s.y, s.x + s.w, s.y + s.h)) drawSticky(s, v, showText); });
-    ctx.strokeStyle = C.edge; ctx.lineWidth = 2; ctx.lineCap = 'round';
-    edges.forEach(drawEdge);
-    nodes.forEach(function (n) { if (intersects(v, n.x - 20, n.y - 20, n.x + NODE + 80, n.y + NODE + 60)) drawNode(n, showText); });
-  }
-
-  // Draw on the next frame; fall back to a timer where frames are throttled (some embedded browsers).
-  function flush() { if (dirty) render(); }
-  function requestRender() {
-    if (dirty) return;
-    dirty = true;
-    requestAnimationFrame(flush);
-    setTimeout(flush, 80);
-  }
-
-  // ---- View ----
-  function resize() {
-    var cx = (W / 2 - view.x) / view.k, cy = (H / 2 - view.y) / view.k;
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-    computeFit();
-    if (!touched) fit(); else { view.x = W / 2 - cx * view.k; view.y = H / 2 - cy * view.k; }
-    requestRender();
-  }
-
-  function computeFit() {
-    if (!bounds) return;
-    var pad = 20, bw = bounds.x1 - bounds.x0, bh = bounds.y1 - bounds.y0;
-    fitK = Math.min((W - pad * 2) / bw, (H - pad * 2 - 56) / bh);
-  }
-
-  function fit() {
-    if (!bounds) return;
-    view.k = fitK;
-    view.x = (W - (bounds.x1 - bounds.x0) * view.k) / 2 - bounds.x0 * view.k;
-    view.y = (H - 56 - (bounds.y1 - bounds.y0) * view.k) / 2 - bounds.y0 * view.k;
-    requestRender();
-  }
-
-  function clampK(k) { return Math.max(fitK * 0.5, Math.min(MAX_ZOOM, k)); }
-
-  function zoomAt(sx, sy, k) {
-    k = clampK(k);
-    var wx = (sx - view.x) / view.k, wy = (sy - view.y) / view.k;
-    view.k = k; view.x = sx - wx * k; view.y = sy - wy * k;
-    touched = true; requestRender();
-  }
-
-  // Keep at least part of the workflow on screen.
-  function constrain() {
-    if (!bounds) return;
-    var m = 80;
-    var minX = m - bounds.x1 * view.k, maxX = W - m - bounds.x0 * view.k;
-    var minY = m - bounds.y1 * view.k, maxY = H - m - bounds.y0 * view.k;
-    view.x = Math.min(maxX, Math.max(minX, view.x));
-    view.y = Math.min(maxY, Math.max(minY, view.y));
-  }
-
-  // ---- Input ----
-  var pointers = new Map(), gesture = null, tapStart = null, lastTap = null;
-
-  canvas.addEventListener('pointerdown', function (e) {
-    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* capture is best-effort */ }
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (pointers.size === 1) { tapStart = { x: e.clientX, y: e.clientY, t: Date.now() }; canvas.classList.add('dragging'); }
-    else tapStart = null;
-    startGesture();
+  // iOS Safari: keep pinch gestures on the viewer, not the page.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
+    document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false });
   });
 
-  function startGesture() {
-    var pts = Array.from(pointers.values());
-    if (pts.length === 1) gesture = { mode: 'pan', px: pts[0].x, py: pts[0].y, vx: view.x, vy: view.y };
-    else if (pts.length >= 2) {
-      var a = pts[0], b = pts[1];
-      gesture = { mode: 'pinch', d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, k: view.k, vx: view.x, vy: view.y };
-    } else gesture = null;
-  }
+  // ---- Tap a node for its details ----
+  // capture.json maps n8n canvas coordinates (as in workflow.json) to pixels of the tiled image.
+  Promise.all([
+    fetch('workflow.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
+    fetch('capture.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+  ]).then(function (res) {
+    map = res[1];
+    res[0].nodes.forEach(function (n) {
+      if (n.type !== 'n8n-nodes-base.stickyNote') nodes.push({ n: n, t: n.type.replace('n8n-nodes-base.', ''), x: n.position[0], y: n.position[1] });
+    });
+  }).catch(function () { /* details unavailable; the view still works */ });
 
-  canvas.addEventListener('pointermove', function (e) {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (!gesture) return;
-    var pts = Array.from(pointers.values());
-    if (gesture.mode === 'pan' && pts.length === 1) {
-      view.x = gesture.vx + (pts[0].x - gesture.px); view.y = gesture.vy + (pts[0].y - gesture.py);
-    } else if (gesture.mode === 'pinch' && pts.length >= 2) {
-      var a = pts[0], b = pts[1], d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-      var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-      var k = clampK(gesture.k * d / gesture.d);
-      var wx = (gesture.mx - gesture.vx) / gesture.k, wy = (gesture.my - gesture.vy) / gesture.k;
-      view.k = k; view.x = mx - wx * k; view.y = my - wy * k;
-    }
-    if (tapStart && Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) > 10) tapStart = null;
-    touched = true; constrain(); requestRender();
+  var tapTimer = null;
+  viewer.addHandler('canvas-click', function (e) {
+    if (!e.quick) return;
+    var pos = e.position;
+    clearTimeout(tapTimer);
+    tapTimer = setTimeout(function () { handleTap(pos); }, 260);
   });
+  viewer.addHandler('canvas-double-click', function () { clearTimeout(tapTimer); });
 
-  function endPointer(e) {
-    if (!pointers.has(e.pointerId)) return;
-    pointers.delete(e.pointerId);
-    if (pointers.size === 0) {
-      canvas.classList.remove('dragging');
-      if (e.type === 'pointerup' && tapStart && Date.now() - tapStart.t < 350) handleTap(e.clientX, e.clientY);
-      tapStart = null;
-    }
-    startGesture();
-  }
-  canvas.addEventListener('pointerup', endPointer);
-  canvas.addEventListener('pointercancel', endPointer);
-  canvas.addEventListener('lostpointercapture', endPointer);
-
-  function handleTap(sx, sy) {
-    var now = Date.now();
-    if (lastTap && now - lastTap.t < 300 && Math.hypot(sx - lastTap.x, sy - lastTap.y) < 30) {
-      lastTap = null; zoomAt(sx, sy, view.k * 2); return;
-    }
-    lastTap = { x: sx, y: sy, t: now };
-    var wx = (sx - view.x) / view.k, wy = (sy - view.y) / view.k;
+  function handleTap(pos) {
+    if (!map || !nodes.length) return;
+    var img = viewer.viewport.viewerElementToImageCoordinates(pos);
+    var wx = (img.x - map.offsetX) / map.scale, wy = (img.y - map.offsetY) / map.scale;
     var hit = null;
     for (var i = nodes.length - 1; i >= 0; i--) {
       var n = nodes[i];
@@ -465,27 +142,8 @@
     if (hit) openSheet(hit); else closeSheet();
   }
 
-  canvas.addEventListener('wheel', function (e) {
-    e.preventDefault();
-    if (e.ctrlKey) zoomAt(e.clientX, e.clientY, view.k * Math.exp(-e.deltaY * 0.01));
-    else { view.x -= e.deltaX; view.y -= e.deltaY; touched = true; constrain(); requestRender(); }
-  }, { passive: false });
-
-  // iOS Safari: stop the browser's own pinch-zoom of the page.
-  ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) {
-    document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false });
-  });
-
-  document.getElementById('fit').addEventListener('click', function () { touched = false; fit(); });
-  document.getElementById('zin').addEventListener('click', function () { zoomAt(W / 2, H / 2, view.k * 1.5); });
-  document.getElementById('zout').addEventListener('click', function () { zoomAt(W / 2, H / 2, view.k / 1.5); });
-  window.addEventListener('resize', resize);
-  window.addEventListener('orientationchange', function () { setTimeout(resize, 150); });
-  if (window.visualViewport) window.visualViewport.addEventListener('resize', resize);
-
-  // ---- Node details ----
+  // ---- Details panel ----
   var sheet = document.getElementById('sheet'), sheetBody = document.getElementById('sheet-body');
-
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; }
   function clean(v) { return typeof v === 'string' ? v.replace(/^=/, '') : JSON.stringify(v, null, 2); }
   function section(title) { sheetBody.appendChild(el('h2', null, title)); }
@@ -540,25 +198,8 @@
 
   // Test hook, only with ?debug in the URL.
   if (/[?&]debug\b/.test(location.search)) {
-    window.__wf = {
-      view: view, render: render,
-      state: function () { return { k: view.k, x: view.x, y: view.y, fitK: fitK, W: W, H: H, dpr: dpr, stickies: stickies.length, nodes: nodes.length, edges: edges.length, sheetOpen: !sheet.hidden }; },
-      stickyLines: function () { return stickies.map(function (s) { var last = s.lines[s.lines.length - 1]; return { top: s.y, h: s.h, lines: s.lines.length, textBottom: last ? last.y + last.line : 0 }; }); }
-    };
+    window.__wf = { viewer: viewer, tapAtImage: function (ix, iy) { var p = viewer.viewport.imageToViewerElementCoordinates(new OpenSeadragon.Point(ix, iy)); handleTap(p); }, map: function () { return map; }, sheetOpen: function () { return !sheet.hidden; } };
   }
-
-  // ---- Start ----
-  function fontsReady() {
-    if (!document.fonts || !document.fonts.load) return Promise.resolve();
-    var loads = Promise.all(['400 16px Inter', '500 16px Inter', '600 18px Inter'].map(function (f) { return document.fonts.load(f); }));
-    return Promise.race([loads, new Promise(function (r) { setTimeout(r, 2500); })]);
-  }
-
-  Promise.all([fetch('workflow.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }), fontsReady()])
-    .then(function (res) { build(res[0]); resize(); render(); })
-    .catch(function () {
-      document.body.insertAdjacentHTML('beforeend', '<div id="fail"><p>The workflow could not be loaded. <a href="./">Try again</a> or <a href="workflow.json">open the workflow JSON</a>.</p></div>');
-    });
 })();
 </script>
 </body>
