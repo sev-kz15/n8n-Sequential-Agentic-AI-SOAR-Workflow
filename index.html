@@ -111,6 +111,7 @@
 
     function fit() {
       var w = frame.clientWidth;
+      if (!w) return;
       if (detailOpen || w >= LOGICAL_W) {
         inner.style.width = ''; inner.style.transform = '';
         frame.style.height = ''; el.style.removeProperty('--canvas-h');
@@ -131,7 +132,11 @@
         if (cmd === 'closeNDV') { detailOpen = false; fit(); }
       } catch (err) {}
     });
-    window.addEventListener('resize', fit);
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(fit).observe(frame);
+    } else {
+      window.addEventListener('resize', fit);
+    }
     fit();
 
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
